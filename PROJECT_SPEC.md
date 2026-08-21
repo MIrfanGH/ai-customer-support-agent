@@ -29,8 +29,11 @@ Single-tenant support demo. No user accounts required for MVP.
 
 ### Unanswerable / Refusal
 5. What is your refund policy?
-6. Which subscription plans are available?
-7. How do I delete my account?
+6. How do I delete my account?
+
+### Answerable (negative/non-existence)
+7. Which subscription plans are available?
+   
 
 ## Success Criteria
 - Answerable queries retrieve relevant chunks.
