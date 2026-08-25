@@ -2,6 +2,7 @@ from app.db.session import SessionLocal
 from app.ingestion.embedder import get_embedding
 from app.db.models import Chunk
 from sqlalchemy.dialects.postgresql import insert
+from app.db.models import Chunk
 
 
 class VectorStore:
@@ -52,5 +53,41 @@ class VectorStore:
             self.session.rollback() # In case of an error, rollback the transaction to maintain database integrity
             return {"status": "error!", "message": e}
 
+
         
+    def search(self, query: str, filters=None, top_k=5) -> list[dict]: 
+
+        # since query is a single string, and get-embedding() expects list[str], returned value will be [[----]] a list of single vector but 
+        # since cosine_distance() expects a vecotr , it wil crash so get the vecotr
+        query_emb = get_embedding([query])[0] 
+
+        distance = Chunk.embedding.cosine_distance(query_emb)
+
+        # base query with, will retunr a tuple (chunk_instance and distance_value)
+        db_query = self.session.query(Chunk, distance.label("distance"))
+
+        # if filters:
+        #     for key, value in filters.items():
+        #         db_query = db_query.filter(Chunk.metadata_[key].astext == str(value))
+                
+
+        rows = db_query.order_by(distance).limit(top_k).all()  # each element in the rows is a tuple like : (Chunk_instance, distance_value)
+
+        # transform the result
+        result = [
+            {
+                "id": c.chunk_index,
+                "content": c.content,
+                "source": c.source,
+                "metadata": c.metadata_,
+                "score": 1-dist,
+
+            }
+
+            for c, dist in rows
+        ]
+
+        return result
+
+
         

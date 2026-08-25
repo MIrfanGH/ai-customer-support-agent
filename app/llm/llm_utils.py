@@ -1,9 +1,8 @@
-from pydantic import BaseModel, ValidationError
 from openai import OpenAI
 import os
 import json
 from app.config import settings
-
+from pydantic import BaseModel, ValidationError
 
 
 client = OpenAI(api_key=settings.openai_api_key)

@@ -1,10 +1,9 @@
 from fastapi import FastAPI
+from app.api.routes import router
 
 app = FastAPI(
     title= " AI Customer Support Agent",
     version= "0.1.0",
 )
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+app.include_router(router)
