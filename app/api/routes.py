@@ -7,12 +7,14 @@ from app.config import settings
 from app.ticket.service import create_ticket
 from app.llm.client import client
 from app.llm.prompts import RAG_TOOLS_SYSTEM_PROMPT
+from app.llm.schemas import AskResponse
 from app.llm.tools import TOOLS
+from app.llm.messages import ESCALATION_MESSAGE, LOW_RETRIEVAL_MESSAGE, ANSWER_QUERY_MESSAGE
 
 router = APIRouter()
 
-@router.post("/ask")
-async def ask_query(query: str, top_k: int=5, db=Depends(get_db)):
+@router.post("/ask", response_model=AskResponse)
+async def ask_query(query: str, top_k: int=5,db=Depends(get_db)):
 
     vs = VectorStore(db)
     chunks = vs.search(query, top_k=top_k)
@@ -20,9 +22,15 @@ async def ask_query(query: str, top_k: int=5, db=Depends(get_db)):
     top_score = chunks[0]["score"] if chunks else 0.0
 
     # Gate 1 — deterministic, pre-LLM , if the retrieval confidence is too low, we escalate to a human and create a ticket
-    if not chunks or chunks[0]["score"] < settings.retrieval_threshold:
+    if not chunks or top_score < settings.retrieval_threshold:
         ticket = create_ticket(session=db, query=query, reason= "low retrieval confidence")
-        return {"escalated": True, "top_score":round(top_score, 3), "ticket_id": ticket.id, "answer": None}
+
+        return AskResponse(
+            escalated=True,
+            top_score=round(top_score, 3),
+            ticket_id=ticket.id,
+            message=LOW_RETRIEVAL_MESSAGE.format(ticket_id=ticket.id)
+        )
 
     context_str = build_context(chunks)
     user_message = f"Query: {query}\n\n context: {context_str}"
@@ -46,10 +54,22 @@ async def ask_query(query: str, top_k: int=5, db=Depends(get_db)):
             summary= args.summary,
             retrieved_sources = [chunk["source"] for chunk in chunks],
         )
-        return {"escalated": True, "top_score":round(top_score, 3), "ticket_id": ticket.id, "answer": args.summary}
+        return AskResponse(
+            escalated=True,
+            top_score=round(top_score, 3),
+            ticket_id=ticket.id,
+            answer=args.summary,
+            message=ESCALATION_MESSAGE.format(ticket_id=ticket.id)
+        )
 
     # name == "answer_query"
-    return {"escalated": False, "answer": args.answer, "top_score":round(top_score, 3), "sources_used": args.sources_used} 
+    return AskResponse(
+        escalated=False,
+        top_score=round(top_score, 3),
+        answer=args.answer,
+        sources_used=args.sources_used,
+        message=ANSWER_QUERY_MESSAGE
+    )
 
 
     
