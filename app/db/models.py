@@ -13,9 +13,7 @@ class Chunk(Base):
     embedding = Column(Vector(1536), nullable=False)
     source = Column(String, nullable=False)
     chunk_index = Column(Integer, nullable=False)
-
     metadata_ = Column(JSONB)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
@@ -33,4 +31,21 @@ class Chunk(Base):
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
     )
+
+
+
+class Ticket(Base):
+
+    """
+    It stores the information about the ticket created. 
+    It contains the query, reason (why the ticket was escalated), summary, and retrieved sources.
+    """
+    __tablename__ = "tickets"
+
+    id = Column(Integer, primary_key=True)
+    query = Column(String, nullable=False)
+    reason = Column(String, nullable=False)
+    summary = Column(String, nullable=True)
+    retrieved_sources = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
