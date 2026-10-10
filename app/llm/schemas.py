@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RAGAnswer(BaseModel):
@@ -7,8 +7,10 @@ class RAGAnswer(BaseModel):
     sources_used: list[str]
     refused: bool
 
+
 class AskRequest(BaseModel):
-     query : str
+    query: str = Field(min_length=1, max_length=1000)
+    top_k: int = Field(5, ge=1, le=20) # the number 5 is a reasonable default for top_k, but we allow the user to specify a different value between 1 and 20.
 
 
 class AnswerToolArgs(BaseModel):
