@@ -9,3 +9,13 @@ class RAGAnswer(BaseModel):
 
 class AskRequest(BaseModel):
      query : str
+
+
+class AnswerToolArgs(BaseModel):
+    answer : str
+    sources_used : list[str]
+
+
+class EscalateToolArgs(BaseModel):
+    reason : str
+    summary: str

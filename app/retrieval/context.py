@@ -7,11 +7,12 @@ ENCODING = tiktoken.get_encoding("cl100k_base")
 
 def build_context(chunks: list[dict], max_tokens=1000) -> str: 
     """
-    Build a token-bounded context from retrieved chunks for the LLM.
+    Build a token-bounded context from all the retrieved chunks for the LLM. So LLM can have all the relevant information to answer the query.
+    It resturns a string that contains the labeled chunks, separated by a separator to mark distinct chunks. 
 
     Each chunk's source and metadata are converted into a readable label
     so the model can associate the provided content with its source.
-    Chunks are added until the maximum token budget is reached.
+
     """
 
     pieces = []

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     openai_api_key : str
     embedding_model : str = "text-embedding-3-small"
     llm_model: str = "gpt-4o-mini"
+    retrieval_threshold: float = 0.6
 
     class Config:
         env_file = ".env"
