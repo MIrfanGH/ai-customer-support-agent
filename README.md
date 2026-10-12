@@ -4,8 +4,6 @@
 
 > Single-tenant. Built end-to-end: ingestion, retrieval, tool-calling, validation/retry, ticketing, API.
 
-**GitHub:** https://github.com/MIrfanGH/ai-customer-support-agent
-
 
 ##  What This Is
 
@@ -244,7 +242,7 @@ Escalated responses return `"escalated": true` and a `ticket_id`. Full response 
 - If the LLM fails to produce a valid tool call after 3 attempts, `/ask` returns a 500 (planned: escalate with a ticket). If ticket creation also fails there is no fallback yet.
 - Gate 1 tickets do not store retrieved sources.
 - Evaluation so far is the 7 golden queries in `PROJECT_SPEC.md`; a scripted eval with expected vs actual results is pending.
-- No conversation memory, reranking, hybrid search, or streaming yet.
+- No conversation memory, reranking, hybrid search, or streaming YET.
 
 ---
 
