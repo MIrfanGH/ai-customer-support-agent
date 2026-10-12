@@ -3,27 +3,35 @@ from app.ingestion.chunker import recursive_chunker
 from app.retrieval.vector_store import VectorStore
 from app.db.session import SessionLocal
 
-SEPARATOR = ["\n\n", "\n", ". ", ""]
-all_chunks = [] # list of dict, each dict represents one final chunk plus its metadata.
 
-docs = doc_extractor("data/documents")
-for doc in docs:
+def main():
+ 
+    db = SessionLocal()
 
-    chunks = recursive_chunker(
-        text = doc["content"],
-        source= doc["source"],
-        separator=SEPARATOR,
-        chunk_size=50,
-        overlap=10,
-        metadata= doc["metadata"],
+    try:
+        SEPARATOR = ["\n\n", "\n", ". ", ""]
+        all_chunks = [] # list of dict, each dict represents one final chunk plus its metadata.
+        docs = doc_extractor("data/documents")
+        for doc in docs:
 
-    )
-    all_chunks.extend(chunks)
+            chunks = recursive_chunker(
+                text = doc["content"],
+                source= doc["source"],
+                separator=SEPARATOR,
+                chunk_size=50,
+                overlap=10,
+                metadata= doc["metadata"],
 
-session = SessionLocal()
-vs = VectorStore(session)
+            )
+            all_chunks.extend(chunks)
+    
+        vs = VectorStore(db)
+        result = vs.upsert(all_chunks)
+        print(result)
 
-result = vs.upsert(all_chunks)
+    finally:
+        db.close()
 
-print(result)
 
+if __name__ == "__main__":
+    main()
