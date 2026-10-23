@@ -6,3 +6,5 @@ __pycache__/
 .vscode/
 .idea/
 SELF_UNDERSTANDING.md
+eval/results/run_*.json
+*.zip

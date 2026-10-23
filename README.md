@@ -34,7 +34,7 @@ The demo corpus is the product documentation of my own SaaS, [MyDailyBlog](https
 | Model drifting outside the docs | Context-only prompt + forced tool call with an `escalate_to_human` exit (a mitigation, not a guarantee) |
 | Malformed LLM output | Pydantic validation + retry with error feedback (max 3) |
 | Unanswerable questions lost | Every escalation becomes a ticket; metadata varies by path (Gate 1 retrieved-source capture is a known gap) |
-| Threshold guesswork | 0.35 chosen from this corpus's own scores on the current eval queries (in-scope low 0.369, out-of-scope high 0.328); provisional |
+| Threshold guesswork | 0.35 chosen from this corpus's own scores; provisional. The 41-case eval shows answerable and unanswerable queries overlapping in the 0.34-0.37 band (see Evaluation) |
 | Duplicate chunks on re-ingest | Idempotent upsert on `(source, chunk_index)` |
 | Untestable pipeline | HTTP-free `answer_or_escalate()`; route is a thin wrapper |
 | Blocking calls in an async server | Plain `def` route, runs in FastAPI's threadpool |
@@ -56,7 +56,7 @@ The demo corpus is the product documentation of my own SaaS, [MyDailyBlog](https
 
 
                                       ┌─────────────────────────────────────┐
-                                      │ User                                │
+                                      │                 User                │
                                       └─────────────────────────────────────┘
                                                           │
                                                           ▼
@@ -81,7 +81,7 @@ The demo corpus is the product documentation of my own SaaS, [MyDailyBlog](https
                                                           ▼
                                                 top_score < 0.35 ?
                                     ┌─────────────────────┴─────────────────────┐
-                                  YES                                         NO
+                                   YES                                           NO
                                     ▼                                           ▼
                       ┌─────────────────────────┐             ┌─────────────────────────────────┐
                       │ GATE 1                  │             │ 2. BUILD CONTEXT                │
@@ -127,7 +127,7 @@ There is no separate classify step: the two gates are the routing between answer
 
 ##  Example Runs
 
-`top_score` is cosine similarity (1 = identical) of the best-matching chunk. Gate 1 threshold is 0.35. These are illustrative runs, not an evaluation: a scripted golden eval (expected vs actual per query) is planned in `eval/`.
+`top_score` is cosine similarity (1 = identical) of the best-matching chunk. Gate 1 threshold is 0.35. These are illustrative runs. The scripted evaluation (41 cases, expected vs actual) is in [`eval/REPORT.md`](eval/REPORT.md).
 
 | Example query | What it tests | top_score | Path | Result |
 |---|---|---|---|---|
@@ -152,8 +152,8 @@ ai-customer-support-agent/
 │   ├── ticket/service.py    create_ticket()
 │   └── db/                  models, session
 ├── data/documents/          source markdown
-├── scripts/                 init_db, threshold_score, debug_retrieval
-├── eval/                    eval findings
+├── scripts/                 init_db, threshold_score, debug_pipeline
+├── eval/                    golden_set.json, grading.py, run_golden_set.py, results/baseline.json, REPORT.md
 ├── docs/                    architecture.md, decisions.md
 ├── PROJECT_SPEC.md
 └── COSTS.md
@@ -233,15 +233,29 @@ Escalated responses return `"escalated": true` and a `ticket_id`. Full response 
 
 ---
 
+##  Evaluation
+
+A scripted golden eval (`eval/golden_set.json`, 41 cases: direct, paraphrase, multi-chunk, negation, unanswerable, off-topic, adversarial) checks the outcome (answer vs escalate), the gate, required and forbidden phrases, and whether the cited sources include an expected document (format-normalized; citations are not verified against the retrieved chunks). `temperature=0`.
+
+```bash
+python -m eval.run_golden_set              # all cases
+python -m eval.run_golden_set P05,N01      # selected cases
+```
+
+Needs the DB running and `OPENAI_API_KEY`. Results are written to `eval/results/run_<timestamp>.json`; the runner deletes the tickets it creates.
+
+**Baseline: 37/41** (`eval/results/baseline.json`). Failures: a Hinglish query blocked by Gate 1 (P05), a negation question over-escalated by the LLM (N01), an off-question answer (U07), and a citation leaking chunk text (N04). Diagnosis, failure modes and the fix plan are in [`eval/REPORT.md`](eval/REPORT.md).
+
+---
+
 ##  Known Limitations
 
-- **Threshold is provisional.** 0.35 comes from a small set of queries; one in-scope query (subscription plans) scores 0.369, a 0.04 margin. Needs a larger labelled set measuring false escalations and unanswerable questions that pass the gate.
-- **Grounding is mitigated, not guaranteed.** Pydantic validates the output schema, not factual support from the context.
-- `sources_used` is model-reported and not checked against retrieved chunks.
-- Parallel tool calls are not disabled; only the first call is used.
+- **Threshold is provisional.** 0.35 is a single absolute-cosine cutoff, and the eval shows it cannot cleanly separate the classes: an answerable Hinglish query scores 0.349 (falsely escalated, P05) while an adversarial query is escalated at Gate 1 by only 0.007 (A02, 0.343). That pass is luck, not protection: the threshold is a relevance filter, not a security control.
+- **Grounding is mitigated, not guaranteed.** Pydantic validates the output schema, not factual support from the context. The eval found an off-question answer (U07: the retrieved chunk is on-topic but names no AI provider) and a refusal of a negation question (N01: the docs say donations are not subscriptions, which the golden set treats as sufficient to answer "no subscription plans documented").
+- **`sources_used` is model-reported and unverified.** The eval shows the model copying context labels and chunk text into it (15 of 41 cases carry malformed sources; the grader normalizes most). Planned fix: derive sources from retrieved chunk metadata.
+- **Non-English queries** score lower against the English-only corpus.
 - If the LLM fails to produce a valid tool call after 3 attempts, `/ask` returns a 500 (planned: escalate with a ticket). If ticket creation also fails there is no fallback yet.
 - Gate 1 tickets do not store retrieved sources.
-- Evaluation so far is the 7 golden queries in `PROJECT_SPEC.md`; a scripted eval with expected vs actual results is pending.
 - No conversation memory, reranking, hybrid search, or streaming YET.
 
 ---
