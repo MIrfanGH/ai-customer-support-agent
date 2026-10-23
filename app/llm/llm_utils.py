@@ -40,6 +40,8 @@ def call_llm_with_tools(client, system_prompt: str, user_message: str, tools, ma
             messages = messages,
             tools = tools,
             tool_choice = "required",
+            parallel_tool_calls=False, # Disabled parallel tool calls to allow only one tool call at a time for clear query vs. human escalation
+            temperature=0.0,  # prevent randomness in the model's output, ensuring consistent tool selection and argument generation
         )
 
         message = response.choices[0].message
@@ -56,7 +58,7 @@ def call_llm_with_tools(client, system_prompt: str, user_message: str, tools, ma
         call = tool_calls[0]  
 
         try:
-            args_dict = json.loads(call.function.arguments) # typecast the arguments from a JSON string to a Python dictionary to validate it against the Pydantic model for that tool.
+            args_dict = json.loads(call.function.arguments)
             if call.function.name == "answer_query":
                 validated = AnswerToolArgs.model_validate(args_dict)
             elif call.function.name == "escalate_to_human":
@@ -67,7 +69,7 @@ def call_llm_with_tools(client, system_prompt: str, user_message: str, tools, ma
             return call.function.name, validated  # Returns the tool name selected by the LLM and its arguments,
                                                     # after the arguments are validated against the corresponding Pydantic schema.
             
-        
+
         except Exception as e:
             # Report the failure as a TOOL result tied to that specific call,
             # not as a fabricated user message. so that the model can see the error in context and correct it in the next attempt.
@@ -101,6 +103,7 @@ def call_llm_with_retry(client, system_prompt: str, user_message: str, schema: t
             messages= messages,
             temperature=0.0,
             response_format={"type": "json_object"},
+            
         )
 
         raw = response.choices[0].message.content

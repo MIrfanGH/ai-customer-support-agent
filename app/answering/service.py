@@ -41,18 +41,18 @@ def answer_or_escalate(db, query:str, top_k:int=5) -> AskResponse:
     context_str = build_context(chunks)
     user_message = f"Query: {query}\n\n context: {context_str}"
 
-    # This is where the LLM is called to decide whether to answer the query or escalate to a human. 
-    # The LLM is forced to pick exactly one tool (answer_query or escalate_to_human) and return its name and validated arguments. 
-    # If the LLM fails to call a tool, retry up to max_retries times.
-    name, args = call_llm_with_tools(
+    # This is where the LLM is called and forced to decide whether to answer the query or escalate to a human. 
+    # If the LLM fails to call a tool, retry up to max_retries times.  Returns tool-name and validated args
+    tool_name, args = call_llm_with_tools(
         client = client,
         system_prompt = RAG_TOOLS_SYSTEM_PROMPT,
         user_message = user_message,
         tools = TOOLS,
+        max_retries = 3
     )
 
     # Gate 2 — LLM decision, if the LLM decides to escalate to a human, we create a ticket with the reason and summary provided by the LLM
-    if name == "escalate_to_human":
+    if tool_name == "escalate_to_human":
         ticket = create_ticket(
             session= db,
             query=query, 
